@@ -1,0 +1,36 @@
+# IndexRocket Web — install to /etc/systemd/system/indexrocket-web.service
+# The frontend is built with NEXT_PUBLIC_API_URL already inlined (see docs), so
+# it needs no secrets at runtime.
+[Unit]
+Description=IndexRocket Web (Next.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=indexrocket
+Group=indexrocket
+WorkingDirectory=/opt/indexrocket/current/apps/web
+Environment=NODE_ENV=production
+# Production port 3100, bound to loopback: only Nginx (upstream indexrocket_web) talks to it.
+ExecStart=/usr/bin/node /opt/indexrocket/current/node_modules/next/dist/bin/next start --port 3100 --hostname 127.0.0.1
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/indexrocket
+# Next.js writes its runtime cache here; everything else stays read-only.
+# The directory must be owned by the indexrocket user (docs/PRODUCTION.md §7).
+ReadWritePaths=-/opt/indexrocket/current/apps/web/.next/cache
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

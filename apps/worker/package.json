@@ -1,0 +1,34 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IndexRocket background worker",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -b"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@indexrocket/database": "^1.0.0",
+    "@indexrocket/google": "^1.0.0",
+    "@indexrocket/queue": "^1.0.0",
+    "@indexrocket/types": "^1.0.0",
+    "@indexrocket/utils": "^1.0.0",
+    "bullmq": "^6.3.4",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
+    "fast-xml-parser": "^5.11.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}

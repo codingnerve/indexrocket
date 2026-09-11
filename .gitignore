@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+.next/
+out/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# typescript
+*.tsbuildinfo
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/
+
+# local credential handover file (never committed)
+.dev-password.txt
+
+# browser-automation artifacts (page snapshots can capture form values)
+.playwright-mcp/

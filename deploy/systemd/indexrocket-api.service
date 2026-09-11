@@ -1,0 +1,38 @@
+# IndexRocket API — install to /etc/systemd/system/indexrocket-api.service
+[Unit]
+Description=IndexRocket API (Express)
+After=network-online.target mongod.service redis-server@indexrocket.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=indexrocket
+Group=indexrocket
+WorkingDirectory=/opt/indexrocket/current/apps/api
+# Secrets live here (mode 0600, root:root; systemd reads it as root before
+# dropping privileges). No .env file on the server.
+# Production port 5101 on loopback (Nginx upstream indexrocket_api). Values in
+# api.env override these defaults; keep them in agreement.
+Environment=PORT=5101 HOST=127.0.0.1
+EnvironmentFile=/etc/indexrocket/api.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+
+# SIGTERM triggers the graceful shutdown (in-flight requests finish, queues,
+# Redis and MongoDB close). The API bounds it at 15 s; allow a margin.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/indexrocket
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

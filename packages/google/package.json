@@ -1,0 +1,36 @@
+{
+  "name": "@indexrocket/google",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IndexRocket Google OAuth and Search Console client, shared by the API and the worker",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@indexrocket/database": "^1.0.0",
+    "@indexrocket/types": "^1.0.0",
+    "@indexrocket/utils": "^1.0.0",
+    "mongoose": "^9.9.5"
+  }
+}

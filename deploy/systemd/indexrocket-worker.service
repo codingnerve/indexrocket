@@ -1,0 +1,35 @@
+# IndexRocket Worker — install to /etc/systemd/system/indexrocket-worker.service
+[Unit]
+Description=IndexRocket Worker (BullMQ)
+After=network-online.target mongod.service redis-server@indexrocket.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=indexrocket
+Group=indexrocket
+WorkingDirectory=/opt/indexrocket/current/apps/worker
+# Mode 0600, root:root. Must hold the SAME ENCRYPTION_KEY as api.env.
+EnvironmentFile=/etc/indexrocket/worker.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+
+# SIGTERM stops job intake and waits for in-flight jobs (WORKER_SHUTDOWN_TIMEOUT_MS,
+# default 60 s). This MUST stay above that value, or systemd kills the process
+# mid-job (the job is then retried as stalled, but the drain is wasted).
+KillSignal=SIGTERM
+TimeoutStopSec=90
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/indexrocket
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

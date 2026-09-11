@@ -1,0 +1,35 @@
+{
+  "name": "@indexrocket/queue",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IndexRocket Redis connection and BullMQ queue definitions",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@indexrocket/types": "^1.0.0",
+    "bullmq": "^6.3.4",
+    "ioredis": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  }
+}
