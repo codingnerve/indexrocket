@@ -126,6 +126,8 @@ no quotes needed.
 Do not place a `.env` file in the release directory. The apps load `.env` from
 their working directory for local development, and a stray file there would be
 merged into production config (EnvironmentFile values still take precedence).
+The one intended exception is the committed, secret-free
+`apps/web/.env.production` (frontend build values, see below).
 
 ### API (`/etc/indexrocket/api.env`) — template: `apps/api/.env.example`
 
@@ -160,14 +162,34 @@ merged into production config (EnvironmentFile values still take precedence).
 | `WORKER_HEALTH_HOST`, `WORKER_HEALTH_PORT` | no | `127.0.0.1`, `5100` | `0` disables. Pick another port if 5100 is taken on the VPS |
 | `WORKER_SHUTDOWN_TIMEOUT_MS` | no | `60000` | Keep below systemd `TimeoutStopSec` (90 s) |
 
-### Frontend (build time) — template: `apps/web/.env.example`
+### Frontend (build time) — committed file: `apps/web/.env.production`
 
 | Variable | Required | Production value | Notes |
 |---|---|---|---|
 | `NEXT_PUBLIC_API_URL` | yes | `https://api.theflyventures.com` | **Inlined at build time** (also sets the CSP `connect-src`). Public by design — never a secret |
 
+The production value is **committed** in `apps/web/.env.production`, so every
+release builds the same way with no manual step on the server. The file holds
+only this public URL; it must never contain secrets (Google client secret,
+`ENCRYPTION_KEY`, Redis or MongoDB credentials), because everything in it can
+end up in the browser bundle. Development is unaffected: `next dev` never reads
+`.env.production` and keeps using `http://localhost:5000`
+(template: `apps/web/.env.example`).
+
+Next.js resolves the variable in this order and **stops at the first hit**:
+shell environment → `.env.production.local` → `.env.local` → `.env.production`.
+Consequences for the server:
+
+- A shell variable named `NEXT_PUBLIC_API_URL` wins over the file **even when it
+  is empty** — an exported empty value produces a bundle with no API URL. The
+  build procedure (§5) therefore runs `unset NEXT_PUBLIC_API_URL` first.
+- `apps/web/.env.local` and `apps/web/.env.production.local` must not exist in a
+  release (they are git-ignored, so a clean clone never has them).
+
 A production bundle built without `NEXT_PUBLIC_API_URL` refuses to call any API
-(it does not fall back to localhost). `next build` prints a warning in that case.
+(it does not fall back to localhost), and `next build` prints
+`[web] NEXT_PUBLIC_API_URL is not set for this production build`. §5 treats that
+warning as a failed build.
 
 ### Startup validation
 
@@ -283,9 +305,26 @@ sudo install -d -o "$USER" /opt/indexrocket/releases/$RELEASE
 git clone --depth 1 "$REPO_URL" /opt/indexrocket/releases/$RELEASE
 cd /opt/indexrocket/releases/$RELEASE
 
-# Do NOT export NODE_ENV=production for these two steps: the build needs devDependencies.
+# Do NOT export NODE_ENV=production for these steps: the build needs devDependencies.
 npm ci
-NEXT_PUBLIC_API_URL=https://api.theflyventures.com npm run build
+
+# Frontend API URL: comes from the committed apps/web/.env.production.
+# A shell variable of the same name (even an empty one) would override it.
+unset NEXT_PUBLIC_API_URL
+grep -qx 'NEXT_PUBLIC_API_URL=https://api.theflyventures.com' apps/web/.env.production \
+  && echo "OK: apps/web/.env.production" || echo "STOP: apps/web/.env.production missing or wrong"
+ls apps/web/.env.local apps/web/.env.production.local 2>/dev/null \
+  && echo "STOP: remove the local override files above" || echo "OK: no local overrides"
+
+# Build everything (API, worker, frontend); stop if the build fails.
+set -o pipefail
+npm run build 2>&1 | tee "$HOME/indexrocket-build-$RELEASE.log"
+
+# Verify the frontend really received the URL before switching releases.
+grep -q 'NEXT_PUBLIC_API_URL is not set' "$HOME/indexrocket-build-$RELEASE.log" \
+  && echo "STOP: frontend built without NEXT_PUBLIC_API_URL" || echo "OK: no NEXT_PUBLIC_API_URL warning"
+grep -rlq 'https://api.theflyventures.com' apps/web/.next/static \
+  && echo "OK: API URL inlined in the browser bundle" || echo "STOP: API URL not in bundle"
 
 # Next.js runtime cache is the only path the services write to.
 sudo mkdir -p apps/web/.next/cache
@@ -332,7 +371,8 @@ The worker has no public port and no domain.
 
 ## 7. Frontend deployment
 
-Built in §5 with `NEXT_PUBLIC_API_URL=https://api.theflyventures.com`;
+Built in §5; `NEXT_PUBLIC_API_URL=https://api.theflyventures.com` comes from the
+committed `apps/web/.env.production`;
 `apps/web/.next/cache` is owned by `indexrocket` (the one path the unit leaves
 writable). Run with
 [`deploy/systemd/indexrocket-web.service`](../deploy/systemd/indexrocket-web.service),
@@ -549,13 +589,13 @@ Before go-live:
 - [ ] theflyventures.com checks (§0 pre-flight) repeated after deployment and identical
 - [ ] `NODE_ENV=production` for API and worker; both start without config errors
 - [ ] `FRONTEND_URL=https://app.theflyventures.com`; `GOOGLE_REDIRECT_URI=https://api.theflyventures.com/api/auth/google/callback`; `ENCRYPTION_KEY` random and identical in API and worker
-- [ ] `/etc/indexrocket/*.env` are mode 0600, owned by root:root; no `.env` files in releases
+- [ ] `/etc/indexrocket/*.env` are mode 0600, owned by root:root; no `.env` files in releases except the committed, secret-free `apps/web/.env.production`
 - [ ] `ss -tlnp` shows 3100, 5100, 5101, 6380 (and 27017) on 127.0.0.1 only
 - [ ] MongoDB: `indexrocket` user with `readWrite` on `indexrocket` only; bound to loopback
 - [ ] Redis 6380: `requirepass` set, bound to loopback, `appendonly yes`, `maxmemory-policy noeviction`
 - [ ] Firewall unchanged: 80/443 open (already), 3100/5100/5101/6380 not open
 - [ ] Nginx: valid `indexrocket` certificate, `/api/ready` not public, rate limits active
-- [ ] Frontend built with `NEXT_PUBLIC_API_URL=https://api.theflyventures.com`
+- [ ] Frontend build log has no `NEXT_PUBLIC_API_URL is not set` warning, and `apps/web/.next/static` contains `https://api.theflyventures.com`
 - [ ] Google OAuth: production redirect URI registered; consent screen complete; verification plan in place
 - [ ] Session cookie observed as `HttpOnly; Secure; SameSite=Lax`, host `api.theflyventures.com`, no `Domain`
 - [ ] No development accounts or credentials in the production database
