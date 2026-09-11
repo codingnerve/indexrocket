@@ -232,11 +232,12 @@ BullMQ requires `maxmemory-policy noeviction`. Eviction policy, persistence and
 passwords are **instance-wide**, so IndexRocket runs its **own Redis instance on
 `127.0.0.1:6380`** instead of changing any Redis the existing site may use.
 
-Debian/Ubuntu's `redis-server` package ships a `redis-server@.service` template
-that runs `/etc/redis/redis-<name>.conf`. Confirm it exists first:
+The dedicated instance runs as its own systemd unit, `redis-indexrocket.service`,
+using `/etc/redis/redis-indexrocket.conf`. Confirm the unit exists and points at
+that configuration file first:
 
 ```bash
-systemctl cat redis-server@.service | head -20
+systemctl cat redis-indexrocket.service | head -20
 ```
 
 `/etc/redis/redis-indexrocket.conf` (owner `redis`, mode 0640):
@@ -258,7 +259,7 @@ maxmemory-policy noeviction
 
 ```bash
 sudo install -d -o redis -g redis -m 0750 /var/lib/redis/indexrocket
-sudo systemctl enable --now redis-server@indexrocket
+sudo systemctl enable --now redis-indexrocket.service
 redis-cli -p 6380 --askpass ping          # PONG
 ```
 
@@ -568,3 +569,51 @@ rejected); JSON-only bodies; SSRF protection with DNS pinning; IndexNow host and
 key verification and 24-hour cooldown; OAuth single-use state; Google host
 allowlist; encrypted OAuth tokens; scrypt password hashing; login and
 registration throttles; no stack traces in production responses; redacted logs.
+
+## 17. Production smoke tests
+
+Run on the VPS after §5–§11. All commands are read-only.
+
+```bash
+# Local health (loopback only)
+curl -fsS http://127.0.0.1:5101/api/ready     # {"ready":true,"checks":{"database":"ok","redis":"ok"}}
+curl -fsS http://127.0.0.1:5100/ready         # worker: database, redis, workers running
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3100/login   # 200
+
+# Public endpoints
+curl -fsS https://api.theflyventures.com/api/health                                   # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://api.theflyventures.com/api/ready     # 403 (not public)
+curl -sI http://app.theflyventures.com | grep -i '^location'    # https://app.theflyventures.com/
+curl -sI http://api.theflyventures.com | grep -i '^location'    # https://api.theflyventures.com/
+curl -sI https://app.theflyventures.com | grep -iE 'strict-transport|content-security|x-frame'
+curl -sI https://api.theflyventures.com/api/health | grep -iE 'strict-transport|x-request-id|x-powered-by'   # no x-powered-by
+
+# CORS / origin: only the frontend is allowed
+curl -sI -H 'Origin: https://app.theflyventures.com' https://api.theflyventures.com/api/health \
+  | grep -i 'access-control-allow-origin'                        # https://app.theflyventures.com
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Origin: https://theflyventures.com' \
+  -H 'Content-Type: application/json' -d '{}' https://api.theflyventures.com/api/auth/login   # 403
+
+# Nothing internal is exposed
+sudo ss -tlnp | grep -E ':(3100|5100|5101|6380)\b'               # all 127.0.0.1
+
+# The existing site is unchanged (compare with the §0 snapshot)
+curl -sI https://theflyventures.com      > ~/theflyventures-after.txt
+curl -sI https://www.theflyventures.com >> ~/theflyventures-after.txt
+echo | openssl s_client -connect theflyventures.com:443 -servername theflyventures.com 2>/dev/null \
+  | openssl x509 -noout -subject -enddate -fingerprint -sha256 >> ~/theflyventures-after.txt
+diff <(grep -viE '^(date|expires|last-modified|etag|age|cf-ray|x-request-id|set-cookie):' ~/theflyventures-before.txt) \
+     <(grep -viE '^(date|expires|last-modified|etag|age|cf-ray|x-request-id|set-cookie):' ~/theflyventures-after.txt) \
+  && echo "theflyventures.com unchanged"
+```
+
+Browser checks at `https://app.theflyventures.com`:
+
+1. Register and log in. In devtools the `ir_session` cookie shows `HttpOnly`,
+   `Secure`, `SameSite=Lax`, host `api.theflyventures.com`, and no `Domain`.
+2. Create a project and add a URL.
+3. Connect Google Search Console: consent at Google, then return to
+   `https://app.theflyventures.com/google` showing the connection.
+4. Run a small batch and watch it complete.
+5. `journalctl -u indexrocket-api -u indexrocket-worker --since -15min` shows no
+   errors and no tokens, cookies or OAuth codes.

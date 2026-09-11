@@ -1,8 +1,8 @@
 # IndexRocket API — install to /etc/systemd/system/indexrocket-api.service
 [Unit]
 Description=IndexRocket API (Express)
-After=network-online.target mongod.service redis-server@indexrocket.service
-Wants=network-online.target
+After=network-online.target mongod.service redis-indexrocket.service
+Wants=network-online.target redis-indexrocket.service
 
 [Service]
 Type=simple

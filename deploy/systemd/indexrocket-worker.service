@@ -1,8 +1,8 @@
 # IndexRocket Worker — install to /etc/systemd/system/indexrocket-worker.service
 [Unit]
 Description=IndexRocket Worker (BullMQ)
-After=network-online.target mongod.service redis-server@indexrocket.service
-Wants=network-online.target
+After=network-online.target mongod.service redis-indexrocket.service
+Wants=network-online.target redis-indexrocket.service
 
 [Service]
 Type=simple
