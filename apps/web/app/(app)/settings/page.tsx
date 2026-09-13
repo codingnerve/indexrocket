@@ -41,7 +41,11 @@ export default function SettingsPage() {
                 { label: 'Current plan', value: <Badge tone="primary">{humanize(user.plan)}</Badge> },
                 {
                   label: 'Credits remaining',
-                  value: <span className="font-medium tabular-nums">{formatNumber(user.credits)}</span>,
+                  value: user.unlimitedCredits ? (
+                    <Badge tone="success">Unlimited</Badge>
+                  ) : (
+                    <span className="font-medium tabular-nums">{formatNumber(user.credits)}</span>
+                  ),
                 },
               ]}
             />

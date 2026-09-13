@@ -17,6 +17,7 @@ import {
   recordLoginFailure,
 } from '../services/auth/loginThrottle.js';
 import { checkRegisterAllowed, recordRegistration } from '../services/auth/registerThrottle.js';
+import { hasUnlimitedCredits } from '../services/billing/credits.js';
 import {
   clearSessionCookie,
   createSession,
@@ -30,7 +31,10 @@ interface PublicUser {
   email: string;
   role: string;
   plan: string;
+  /** The stored balance. For admins this number is never spent. */
   credits: number;
+  /** Computed server-side from the stored role; clients display it, never decide it. */
+  unlimitedCredits: boolean;
 }
 
 /** The only user shape that ever leaves the API. passwordHash is not in it. */
@@ -49,7 +53,37 @@ function toPublicUser(user: {
     role: user.role,
     plan: user.plan,
     credits: user.credits,
+    unlimitedCredits: hasUnlimitedCredits(user),
   };
+}
+
+/**
+ * The only fields registration accepts. Anything else in the body — role,
+ * credits, plan — is ignored, so an account can never be created with elevated
+ * privileges or a chosen balance; those always take the schema defaults.
+ */
+export function readRegistrationInput(body: unknown): { name: string; email: string; password: string } {
+  if (typeof body !== 'object' || body === null) {
+    throw new HttpError(400, 'Request body must be a JSON object.');
+  }
+
+  const { name, email, password } = body as Record<string, unknown>;
+
+  if (typeof name !== 'string' || name.trim() === '' || name.trim().length > 120) {
+    throw new HttpError(400, '"name" is required and must be 1-120 characters.');
+  }
+
+  if (!isValidEmail(email)) {
+    throw new HttpError(400, '"email" must be a valid email address.');
+  }
+
+  const policy = checkPasswordPolicy(password);
+
+  if (!policy.valid) {
+    throw new HttpError(400, policy.reason);
+  }
+
+  return { name: name.trim(), email: email as string, password: password as string };
 }
 
 function clientAddress(req: Request): string {
@@ -76,25 +110,7 @@ export async function register(
   next: NextFunction,
 ): Promise<void> {
   try {
-    if (typeof req.body !== 'object' || req.body === null) {
-      throw new HttpError(400, 'Request body must be a JSON object.');
-    }
-
-    const { name, email, password } = req.body as Record<string, unknown>;
-
-    if (typeof name !== 'string' || name.trim() === '' || name.trim().length > 120) {
-      throw new HttpError(400, '"name" is required and must be 1-120 characters.');
-    }
-
-    if (!isValidEmail(email)) {
-      throw new HttpError(400, '"email" must be a valid email address.');
-    }
-
-    const policy = checkPasswordPolicy(password);
-
-    if (!policy.valid) {
-      throw new HttpError(400, policy.reason);
-    }
+    const input = readRegistrationInput(req.body);
 
     const address = clientAddress(req);
     const throttle = await checkRegisterAllowed(address, env.registerRateMax);
@@ -104,7 +120,7 @@ export async function register(
       throw new HttpError(429, 'Too many accounts created from this address. Try again later.');
     }
 
-    const normalized = normalizeEmail(email);
+    const normalized = normalizeEmail(input.email);
     const existing = await User.findOne({ email: normalized }).select('_id');
 
     if (existing !== null) {
@@ -114,10 +130,11 @@ export async function register(
       throw new HttpError(409, 'That email address cannot be registered.');
     }
 
+    // Only these three fields are written; role, credits and plan take the schema defaults.
     const created = await User.create({
-      name: name.trim(),
+      name: input.name,
       email: normalized,
-      passwordHash: await hashPassword(password as string),
+      passwordHash: await hashPassword(input.password),
     });
 
     await recordRegistration(address);

@@ -22,6 +22,8 @@ export interface SessionUser {
   role: string;
   plan: string;
   credits: number;
+  /** Computed by the API from the stored role. Display only; the API enforces it. */
+  unlimitedCredits: boolean;
 }
 
 export interface Project {

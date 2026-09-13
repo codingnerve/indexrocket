@@ -129,8 +129,16 @@ function SidebarContent({ user, onNavigate, onClose }: { user: SessionUser; onNa
             <span className="text-xs font-semibold text-primary">{humanize(user.plan)}</span>
           </div>
           <p className="mt-1 text-[13px] text-foreground">
-            <span className="font-semibold tabular-nums">{formatNumber(user.credits)}</span>{' '}
-            <span className="text-muted">{user.credits === 1 ? 'credit' : 'credits'} remaining</span>
+            {user.unlimitedCredits ? (
+              <>
+                <span className="font-semibold">Unlimited</span> <span className="text-muted">credits</span>
+              </>
+            ) : (
+              <>
+                <span className="font-semibold tabular-nums">{formatNumber(user.credits)}</span>{' '}
+                <span className="text-muted">{user.credits === 1 ? 'credit' : 'credits'} remaining</span>
+              </>
+            )}
           </p>
         </div>
 
