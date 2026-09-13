@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IndexRocket — Web
 
-## Getting Started
+The IndexRocket product UI: a Next.js 16 App Router application that talks to the
+IndexRocket API (`apps/api`) with the browser's HttpOnly session cookie.
 
-First, run the development server:
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev --workspace=web      # http://localhost:3000, API expected at http://localhost:5000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`NEXT_PUBLIC_API_URL` selects the API. Development falls back to
+`http://localhost:5000`; production reads the committed `.env.production`
+(`https://api.theflyventures.com`) and never falls back to localhost. See
+`docs/PRODUCTION.md` for the production build procedure.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/
+  page.tsx                 public landing page (server component)
+  (auth)/                  /login, /register — split-screen auth layout
+  (app)/                   authenticated product, wrapped in the app shell
+    dashboard/  projects/  urls/  submissions/  analytics/
+    integrations/  google/  indexnow/  settings/
+  components/ui/           design-system primitives (buttons, forms, tables, dialogs, toasts…)
+  components/shell/        sidebar, mobile drawer, account menu, session gate
+  components/status.tsx    the status vocabulary (see below)
+  features/                reusable product pieces (URL table, batch table, dialogs, Google panel)
+  lib/                     API client, response types, hooks, session, theme, formatting
+```
 
-## Learn More
+- **Design tokens** live in `app/globals.css` as CSS variables and are exposed to
+  Tailwind (`bg-card`, `text-muted`, `bg-primary`…). Light and dark themes are
+  driven by the `data-theme` attribute.
+- **Data**: `lib/api.ts` is the only HTTP client. `useResource` loads and
+  optionally polls (only while real server-side work is running); `useAction`
+  runs mutations with toasts and friendly error messages.
+- **Auth**: the session cookie is scoped to the API host, so the app shell asks
+  `/api/auth/me` and redirects to `/login` when there is no session. The API
+  remains the security boundary; no token is ever stored in the browser.
 
-To learn more about Next.js, take a look at the following resources:
+## Status vocabulary
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Three families are never merged:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Family     | Source                    | Example labels                    |
+| ---------- | ------------------------- | --------------------------------- |
+| Inspection | IndexRocket's own checks  | Queued, Inspecting, Inspected     |
+| Google     | Google Search Console     | Indexed, Not indexed, Not checked |
+| IndexNow   | Notification acceptance   | Notified, Sending, Not notified   |
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Only the Google family may say "Indexed". An accepted IndexNow notification is
+shown as "Notified".

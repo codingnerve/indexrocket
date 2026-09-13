@@ -1,26 +1,209 @@
 @import "tailwindcss";
 
+/* Dark mode follows the data-theme attribute set by lib/theme-script.ts. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---- Design tokens --------------------------------------------------------
+ * Every colour, shadow and radius in the UI comes from these variables
+ * (exposed to Tailwind below). Components never hard-code a hex value, so the
+ * light and dark themes stay consistent by construction.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --background: #f5f6f8;
+  --foreground: #0d1321;
+  --muted: #5b6475;
+  --subtle: #eef0f4;
+  --card: #ffffff;
+  --card-hover: #f9fafb;
+  --border: #e2e5eb;
+  --border-strong: #cbd1da;
+  --sidebar: #fbfbfc;
+  --overlay: rgb(13 19 33 / 0.42);
+
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eef0fe;
+  --primary-soft-foreground: #3d35c6;
+
+  --success: #16803c;
+  --success-soft: #e7f6ed;
+  --warning: #b25309;
+  --warning-soft: #fcf3e1;
+  --danger: #c02632;
+  --danger-soft: #fdebec;
+  --info: #0b69a6;
+  --info-soft: #e6f1fa;
+
+  --elev-1: 0 1px 2px rgb(13 19 33 / 0.05);
+  --elev-2: 0 1px 2px rgb(13 19 33 / 0.04), 0 6px 16px rgb(13 19 33 / 0.06);
+  --elev-3: 0 16px 40px rgb(13 19 33 / 0.16), 0 2px 8px rgb(13 19 33 / 0.06);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #0a0e15;
+  --foreground: #e6e9ef;
+  --muted: #8b94a6;
+  --subtle: #161c26;
+  --card: #10151e;
+  --card-hover: #141a24;
+  --border: #212936;
+  --border-strong: #2d3746;
+  --sidebar: #0c1119;
+  --overlay: rgb(0 0 0 / 0.6);
+
+  --primary: #6f6cf7;
+  --primary-hover: #8280f9;
+  --primary-foreground: #ffffff;
+  --primary-soft: rgb(111 108 247 / 0.15);
+  --primary-soft-foreground: #b9b7ff;
+
+  --success: #43c17a;
+  --success-soft: rgb(67 193 122 / 0.13);
+  --warning: #e1a33d;
+  --warning-soft: rgb(225 163 61 / 0.14);
+  --danger: #f06a74;
+  --danger-soft: rgb(240 106 116 / 0.14);
+  --info: #55abe2;
+  --info-soft: rgb(85 171 226 / 0.14);
+
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --elev-2: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 16px rgb(0 0 0 / 0.3);
+  --elev-3: 0 16px 40px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.35);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-sidebar: var(--sidebar);
+  --color-overlay: var(--overlay);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --shadow-xs: var(--elev-1);
+  --shadow-sm: var(--elev-2);
+  --shadow-lg: var(--elev-3);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  /* Radius scale: small (controls), medium (cards), large (dialogs). */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-slide-up: slide-up 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-slide-in-left: slide-in-left 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--foreground);
+  }
+
+  dialog {
+    color: var(--foreground);
+  }
+
+  dialog::backdrop {
+    background: var(--overlay);
+  }
+
+  dialog[open] {
+    animation: var(--animate-slide-up);
+  }
+
+  dialog[open]::backdrop {
+    animation: var(--animate-fade-in);
+  }
+
+  dialog[data-variant="drawer"][open] {
+    animation: var(--animate-slide-in-left);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
